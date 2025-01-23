@@ -1,0 +1,1043 @@
+openapi: 3.1.0
+info:
+  title: Spike.sh API
+  description: |
+    The API v1.1.0 is in **beta**, we would highly appreciate your feedback, write to us at [developers@spike.sh](mailto:developers@spike.sh). Find your API key on [this page](https://app.spike.sh/api).
+
+    Our API is fairly straightforward. Some important points you should read:
+    1. Users, Escalations, Incidents, Services, Integrations, and On-call schedules belong to a team. To fetch or create anything, a valid Team ID is needed in the header.
+    2. `x-api-key` is required in headers for all routes while `x-team-id` is for most but not all routes
+    3. We do not support archiving from the API yet
+    4. For user specific operations, you can fetch user Ids from org routes and use them. A User ID is required in query parameters for routes such as getting **upcoming shifts** for a user
+  version: '1.1.0'
+servers:
+  - url: https://api.spike.sh
+  - url: https://statuspage.spike.sh
+    description: Status Page API
+
+components:
+  parameters:
+    authHeader:
+      name: x-api-key
+      in: header
+      required: true
+      schema:
+        type: string
+      description: API Key for authentication
+    
+    teamHeader:
+      name: x-team-id
+      in: header
+      required: true
+      schema:
+        type: string
+      description: Team ID
+    
+    counterId:
+      name: counterId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Counter ID of the resource
+    
+    userId:
+      name: id
+      in: query
+      required: true
+      schema:
+        type: string
+      description: User ID
+
+paths:
+  # Organization Routes
+  /orgs/members:
+    get:
+      tags:
+        - Organization
+      summary: Fetch members in your org
+      description: Get a list of all members in your organization, including removed members
+      parameters:
+        - $ref: '#/components/parameters/authHeader'
+      responses:
+        '200':
+          description: List of organization members
+        '401':
+          description: Unauthorized
+
+  /orgs/info:
+    get:
+      tags:
+        - Organization
+      summary: Fetch your org info
+      description: Get information about your organization
+      parameters:
+        - $ref: '#/components/parameters/authHeader'
+      responses:
+        '200':
+          description: Organization information
+        '401':
+          description: Unauthorized
+
+  # Team Routes
+  /teams/get-all-teams:
+    get:
+      tags:
+        - Teams
+      summary: Fetch all teams
+      description: Get details of all teams in your organization
+      parameters:
+        - $ref: '#/components/parameters/authHeader'
+      responses:
+        '200':
+          description: List of all teams
+        '401':
+          description: Unauthorized
+
+  /teams/get-my-teams:
+    get:
+      tags:
+        - Teams
+      summary: Fetch teams you are part of
+      description: Get details of all teams you are a member of
+      parameters:
+        - $ref: '#/components/parameters/authHeader'
+        - $ref: '#/components/parameters/userId'
+      responses:
+        '200':
+          description: List of teams you belong to
+        '401':
+          description: Unauthorized
+
+  # Incident Routes
+  /incidents:
+    get:
+      tags:
+        - Incidents
+      summary: Fetch incidents
+      description: Get a list of all incidents for a team
+      parameters:
+        - $ref: '#/components/parameters/authHeader'
+        - $ref: '#/components/parameters/teamHeader'
+      responses:
+        '200':
+          description: List of incidents
+        '401':
+          description: Unauthorized
+
+  /incidents/{counterId}:
+    get:
+      tags:
+        - Incidents
+      summary: Fetch incident info
+      description: Get details of an incident including title, metadata, priority, severity, and activity log
+      parameters:
+        - $ref: '#/components/parameters/authHeader'
+        - $ref: '#/components/parameters/teamHeader'
+        - $ref: '#/components/parameters/counterId'
+      responses:
+        '200':
+          description: Detailed incident information
+        '401':
+          description: Unauthorized
+
+  /incidents/create:
+    post:
+      tags:
+        - Incidents
+      summary: Create an incident
+      description: Creates an incident and sends alerts
+      parameters:
+        - $ref: '#/components/parameters/authHeader'
+        - $ref: '#/components/parameters/teamHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - title
+                - escalation
+                - integration
+              properties:
+                title:
+                  type: string
+                  description: Incident title
+                metadata:
+                  type: string
+                  description: Additional metadata
+                escalation:
+                  type: string
+                  description: Escalation ID
+                integration:
+                  type: string
+                  description: Integration token
+                priority:
+                  type: string
+                  enum: [p1, p2, p3, p4, p5]
+                  description: Priority level
+                severity:
+                  type: string
+                  enum: [sev1, sev2, sev3]
+                  description: Severity level
+      responses:
+        '200':
+          description: Incident created successfully
+        '401':
+          description: Unauthorized
+
+  /incidents/{counterId}/get-previous-incidents:
+    get:
+      tags:
+        - Incidents
+      summary: Fetch previous occurrences of an incident
+      description: Get list of previous occurrences of an incident
+      parameters:
+        - $ref: '#/components/parameters/authHeader'
+        - $ref: '#/components/parameters/teamHeader'
+        - $ref: '#/components/parameters/counterId'
+      responses:
+        '200':
+          description: List of previous incidents
+        '401':
+          description: Unauthorized
+
+  /incidents/{counterId}/incident-context:
+    get:
+      tags:
+        - Incidents
+      summary: Fetch incident context
+      description: Get overview of an incident
+      parameters:
+        - $ref: '#/components/parameters/authHeader'
+        - $ref: '#/components/parameters/teamHeader'
+        - $ref: '#/components/parameters/counterId'
+      responses:
+        '200':
+          description: Incident context information
+        '401':
+          description: Unauthorized
+
+  /incidents/{counter_id}/activity-log:
+    get:
+      tags:
+        - Incidents
+      summary: Fetch incident activity log
+      description: Get the activity log for an incident
+      parameters:
+        - $ref: '#/components/parameters/authHeader'
+        - $ref: '#/components/parameters/teamHeader'
+        - name: counter_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Incident counter ID
+      responses:
+        '200':
+          description: Incident activity log
+        '401':
+          description: Unauthorized
+
+  /incidents/triggered:
+    get:
+      tags:
+        - Incidents
+      summary: Fetch all triggered incidents
+      description: Get all incidents in triggered state
+      parameters:
+        - $ref: '#/components/parameters/authHeader'
+        - $ref: '#/components/parameters/teamHeader'
+      responses:
+        '200':
+          description: List of triggered incidents
+        '401':
+          description: Unauthorized
+
+  /incidents/acknowledged:
+    get:
+      tags:
+        - Incidents
+      summary: Fetch all acknowledged incidents
+      description: Get all incidents in acknowledged state
+      parameters:
+        - $ref: '#/components/parameters/authHeader'
+        - $ref: '#/components/parameters/teamHeader'
+      responses:
+        '200':
+          description: List of acknowledged incidents
+        '401':
+          description: Unauthorized
+
+  /incidents/assigned-to-user:
+    get:
+      tags:
+        - Incidents
+      summary: Fetch incidents assigned to a user
+      parameters:
+        - $ref: '#/components/parameters/authHeader'
+        - $ref: '#/components/parameters/teamHeader'
+        - $ref: '#/components/parameters/userId'
+      responses:
+        '200':
+          description: List of assigned incidents
+        '401':
+          description: Unauthorized
+
+  # Incident Actions
+  /incidents/acknowledge:
+    post:
+      tags:
+        - Incident Actions
+      summary: Acknowledge incidents
+      description: Acknowledge one or more incidents
+      parameters:
+        - $ref: '#/components/parameters/authHeader'
+        - $ref: '#/components/parameters/teamHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - ids
+              properties:
+                ids:
+                  type: array
+                  items:
+                    type: string
+                  description: Array of incident counter IDs
+      responses:
+        '200':
+          description: Incidents acknowledged successfully
+        '401':
+          description: Unauthorized
+
+  /incidents/resolve:
+    post:
+      tags:
+        - Incident Actions
+      summary: Resolve incidents
+      description: Resolve one or more incidents
+      parameters:
+        - $ref: '#/components/parameters/authHeader'
+        - $ref: '#/components/parameters/teamHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - ids
+              properties:
+                ids:
+                  type: array
+                  items:
+                    type: string
+                  description: Array of incident counter IDs
+      responses:
+        '200':
+          description: Incidents resolved successfully
+        '401':
+          description: Unauthorized
+
+  /incidents/escalate:
+    post:
+      tags:
+        - Incident Actions
+      summary: Escalate incidents
+      description: Escalate one or more incidents
+      parameters:
+        - $ref: '#/components/parameters/authHeader'
+        - $ref: '#/components/parameters/teamHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - ids
+              properties:
+                ids:
+                  type: array
+                  items:
+                    type: string
+                  description: Array of incident counter IDs
+      responses:
+        '200':
+          description: Incidents escalated successfully
+        '401':
+          description: Unauthorized
+
+  /incidents/priority:
+    post:
+      tags:
+        - Incident Actions
+      summary: Set incident priority
+      description: Set priority for one or more incidents
+      parameters:
+        - $ref: '#/components/parameters/authHeader'
+        - $ref: '#/components/parameters/teamHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - ids
+                - priority
+              properties:
+                ids:
+                  type: array
+                  items:
+                    type: string
+                  description: Array of incident counter IDs
+                priority:
+                  type: string
+                  enum: [p1, p2, p3, p4, p5]
+                  description: Priority level
+      responses:
+        '200':
+          description: Priority set successfully
+        '401':
+          description: Unauthorized
+
+  /incidents/severity:
+    post:
+      tags:
+        - Incident Actions
+      summary: Set incident severity
+      description: Set severity for one or more incidents
+      parameters:
+        - $ref: '#/components/parameters/authHeader'
+        - $ref: '#/components/parameters/teamHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - ids
+                - severity
+              properties:
+                ids:
+                  type: array
+                  items:
+                    type: string
+                  description: Array of incident counter IDs
+                severity:
+                  type: string
+                  enum: [sev1, sev2, sev3]
+                  description: Severity level
+      responses:
+        '200':
+          description: Severity set successfully
+        '401':
+          description: Unauthorized
+
+  # Services Routes
+  /services:
+    get:
+      tags:
+        - Services
+      summary: Fetch all services
+      description: Get list of services for a team
+      parameters:
+        - $ref: '#/components/parameters/authHeader'
+        - $ref: '#/components/parameters/teamHeader'
+      responses:
+        '200':
+          description: List of services
+        '401':
+          description: Unauthorized
+
+  /services/create:
+    post:
+      tags:
+        - Services
+      summary: Create a service
+      description: Create a new service in a team
+      parameters:
+        - $ref: '#/components/parameters/authHeader'
+        - $ref: '#/components/parameters/teamHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                  description: Service name
+                desc:
+                  type: string
+                  description: Service description
+      responses:
+        '200':
+          description: Service created successfully
+        '401':
+          description: Unauthorized
+
+  /services/{counterId}:
+    get:
+      tags:
+        - Services
+      summary: Fetch service details
+      description: Get service details including incidents
+      parameters:
+        - $ref: '#/components/parameters/authHeader'
+        - $ref: '#/components/parameters/teamHeader'
+        - $ref: '#/components/parameters/counterId'
+      responses:
+        '200':
+          description: Service details
+        '401':
+          description: Unauthorized
+
+  /services/affected:
+    get:
+      tags:
+        - Services
+      summary: Fetch affected services
+      description: Get currently affected services
+      parameters:
+        - $ref: '#/components/parameters/authHeader'
+        - $ref: '#/components/parameters/teamHeader'
+      responses:
+        '200':
+          description: List of affected services
+        '401':
+          description: Unauthorized
+
+  # On-Call Routes
+  /on-calls:
+    get:
+      tags:
+        - On-Call
+      summary: Fetch on-calls
+      description: Get list of on-call schedules for a team
+      parameters:
+        - $ref: '#/components/parameters/authHeader'
+        - $ref: '#/components/parameters/teamHeader'
+      responses:
+        '200':
+          description: List of on-call schedules
+        '401':
+          description: Unauthorized
+
+  /oncalls/am-i-on-call:
+    get:
+      tags:
+        - On-Call
+      summary: Check if user is on-call
+      description: Check if a specific user is currently on-call
+      parameters:
+        - $ref: '#/components/parameters/authHeader'
+        - $ref: '#/components/parameters/teamHeader'
+        - $ref: '#/components/parameters/userId'
+      responses:
+        '200':
+          description: On-call status
+        '401':
+          description: Unauthorized
+
+  /oncalls/upcoming-shifts:
+    get:
+      tags:
+        - On-Call
+      summary: Fetch upcoming shifts
+      description: Get upcoming shifts from multiple schedules
+      parameters:
+        - $ref: '#/components/parameters/authHeader'
+        - $ref: '#/components/parameters/teamHeader'
+        - $ref: '#/components/parameters/userId'
+      responses:
+        '200':
+          description: List of upcoming shifts
+        '401':
+          description: Unauthorized
+
+  # Integration Routes
+  /integrations:
+    get:
+      tags:
+        - Integrations
+      summary: Fetch all integrations
+      description: Get a list of all integrations for a team
+      parameters:
+        - $ref: '#/components/parameters/authHeader'
+        - $ref: '#/components/parameters/teamHeader'
+      responses:
+        '200':
+          description: List of integrations
+        '401':
+          description: Unauthorized
+
+  /integrations/available:
+    get:
+      tags:
+        - Integrations
+      summary: Fetch available integrations
+      description: Get list of all available integrations on Spike.sh
+      parameters:
+        - $ref: '#/components/parameters/authHeader'
+        - $ref: '#/components/parameters/teamHeader'
+      responses:
+        '200':
+          description: List of available integrations
+        '401':
+          description: Unauthorized
+
+  /integrations/{token}:
+    get:
+      tags:
+        - Integrations
+      summary: Fetch integration details
+      description: Get details of a specific integration
+      parameters:
+        - $ref: '#/components/parameters/authHeader'
+        - $ref: '#/components/parameters/teamHeader'
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Integration token
+      responses:
+        '200':
+          description: Integration details
+        '401':
+          description: Unauthorized
+
+  /integrations/create:
+    post:
+      tags:
+        - Integrations
+      summary: Create an integration
+      description: Create a new integration for a team
+      parameters:
+        - $ref: '#/components/parameters/authHeader'
+        - $ref: '#/components/parameters/teamHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - customName
+                - slug
+                - escalation
+                - service
+              properties:
+                customName:
+                  type: string
+                  description: Integration name
+                desc:
+                  type: string
+                  description: Integration description
+                slug:
+                  type: string
+                  description: Integration type slug
+                escalation:
+                  type: string
+                  description: Escalation ID
+                service:
+                  type: string
+                  description: Service ID
+                repeatEscalation:
+                  type: boolean
+                ackTimeout:
+                  type: integer
+                  description: Acknowledge timeout in minutes
+      responses:
+        '200':
+          description: Integration created successfully
+        '401':
+          description: Unauthorized
+
+  /integrations/{token}/archive:
+    delete:
+      tags:
+        - Integrations
+      summary: Archive integration
+      description: Archive an integration
+      parameters:
+        - $ref: '#/components/parameters/authHeader'
+        - $ref: '#/components/parameters/teamHeader'
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Integration token
+      responses:
+        '200':
+          description: Integration archived successfully
+        '401':
+          description: Unauthorized
+
+  # Status Page Routes
+  /api/status-page/all:
+    get:
+      tags:
+        - Status Page
+      summary: Get all status pages
+      description: Gets list of all status pages of an organisation
+      parameters:
+        - $ref: '#/components/parameters/authHeader'
+      responses:
+        '200':
+          description: List of status pages
+        '401':
+          description: Unauthorized
+
+  /api/status-page/{statusPageId}:
+    get:
+      tags:
+        - Status Page
+      summary: Get status page details
+      description: Gets details of a specific status page
+      parameters:
+        - $ref: '#/components/parameters/authHeader'
+        - name: statusPageId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Status Page ID
+      responses:
+        '200':
+          description: Status page details
+        '401':
+          description: Unauthorized
+
+  /api/status-page/{statusPageId}/component:
+    get:
+      tags:
+        - Status Page Components
+      summary: Get all components
+      description: Gets a list of all components linked to a status page
+      parameters:
+        - $ref: '#/components/parameters/authHeader'
+        - name: statusPageId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Status Page ID
+      responses:
+        '200':
+          description: List of components
+        '401':
+          description: Unauthorized
+
+  /api/status-page/{statusPageId}/component/{componentId}:
+    get:
+      tags:
+        - Status Page Components
+      summary: Get component details
+      description: Get details of a status page component
+      parameters:
+        - $ref: '#/components/parameters/authHeader'
+        - name: statusPageId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Status Page ID
+        - name: componentId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Component ID
+      responses:
+        '200':
+          description: Component details
+        '401':
+          description: Unauthorized
+
+  /api/status-page/{statusPageId}/component/create:
+    post:
+      tags:
+        - Status Page Components
+      summary: Create component
+      description: Create a new component for a status page
+      parameters:
+        - $ref: '#/components/parameters/authHeader'
+        - name: statusPageId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Status Page ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - components
+              properties:
+                components:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - name
+                      - desc
+                    properties:
+                      name:
+                        type: string
+                        description: Component name
+                      desc:
+                        type: string
+                        description: Component description
+                      status:
+                        type: string
+                        enum: [operational, degraded-performance, partial-outage, critical-outage]
+                        description: Component status
+                      private:
+                        type: boolean
+                        description: Component visibility
+      responses:
+        '200':
+          description: Component created successfully
+        '401':
+          description: Unauthorized
+
+  /api/status-page/{statusPageId}/incidents:
+    get:
+      tags:
+        - Status Page Incidents
+      summary: Get all incidents
+      description: Get a list of all incidents on a status page
+      parameters:
+        - $ref: '#/components/parameters/authHeader'
+        - name: statusPageId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Status Page ID
+      responses:
+        '200':
+          description: List of incidents
+        '401':
+          description: Unauthorized
+
+  /api/status-page/{statusPageId}/incident/new:
+    post:
+      tags:
+        - Status Page Incidents
+      summary: Create incident
+      description: Creates a new incident on a status page
+      parameters:
+        - $ref: '#/components/parameters/authHeader'
+        - name: statusPageId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Status Page ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - title
+                - desc
+                - severity
+                - componentStatus
+              properties:
+                title:
+                  type: string
+                  description: Incident title
+                desc:
+                  type: string
+                  description: Incident description
+                severity:
+                  type: string
+                  enum: [operational, degraded-performance, partial-outage, critical-outage]
+                  description: Incident severity
+                componentStatus:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - id
+                      - status
+                    properties:
+                      id:
+                        type: string
+                        description: Component ID
+                      status:
+                        type: string
+                        enum: [operational, degraded-performance, partial-outage, critical-outage]
+                        description: Component status
+                notify:
+                  type: boolean
+                  description: Whether to notify subscribers
+                identifiedAtTime:
+                  type: string
+                  description: Time when incident was identified (HH:mm)
+                identifiedAt:
+                  type: string
+                  description: Date when incident was identified (DD/MM/YYYY)
+      responses:
+        '200':
+          description: Incident created successfully
+        '401':
+          description: Unauthorized
+
+  /api/status-page/{statusPageId}/planned-maintenance:
+    get:
+      tags:
+        - Status Page Maintenance
+      summary: Get ongoing maintenances
+      description: Get a list of ongoing maintenance windows
+      parameters:
+        - $ref: '#/components/parameters/authHeader'
+        - name: statusPageId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Status Page ID
+      responses:
+        '200':
+          description: List of ongoing maintenances
+        '401':
+          description: Unauthorized
+
+  /api/status-page/{statusPageId}/planned-maintenance/upcoming:
+    get:
+      tags:
+        - Status Page Maintenance
+      summary: Get upcoming maintenances
+      description: Get a list of upcoming maintenance windows
+      parameters:
+        - $ref: '#/components/parameters/authHeader'
+        - name: statusPageId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Status Page ID
+      responses:
+        '200':
+          description: List of upcoming maintenances
+        '401':
+          description: Unauthorized
+
+  /api/status-page/{statusPageId}/planned-maintenance/create:
+    post:
+      tags:
+        - Status Page Maintenance
+      summary: Create maintenance window
+      description: Create a new planned maintenance window
+      parameters:
+        - $ref: '#/components/parameters/authHeader'
+        - name: statusPageId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Status Page ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - title
+                - desc
+                - startDate
+                - endDate
+                - startTime
+                - endTime
+                - components
+              properties:
+                title:
+                  type: string
+                  description: Maintenance window title
+                desc:
+                  type: string
+                  description: Maintenance description
+                startDate:
+                  type: string
+                  description: Start date (DD/MM/YYYY)
+                endDate:
+                  type: string
+                  description: End date (DD/MM/YYYY)
+                startTime:
+                  type: string
+                  description: Start time (HH:mm)
+                endTime:
+                  type: string
+                  description: End time (HH:mm)
+                notify:
+                  type: boolean
+                  description: Notify subscribers when maintenance starts
+                components:
+                  type: array
+                  items:
+                    type: string
+                  description: Array of component IDs
+                notifyNow:
+                  type: boolean
+                  description: Send notification about schedule now
+                notifyOnEnd:
+                  type: boolean
+                  description: Send notification when maintenance ends
+                reminders:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      time:
+                        type: integer
+                        description: Reminder time value
+                      unit:
+                        type: string
+                        enum: [minutes, hours, days]
+                        description: Time unit for reminder
+      responses:
+        '200':
+          description: Maintenance window created successfully
+        '401':
+          description: Unauthorized
+
+  /api/status-page/{statusPageId}/subscribers:
+    get:
+      tags:
+        - Status Page Subscribers
+      summary: Get subscribers
+      description: Get a list of all subscribers of a status page
+      parameters:
+        - $ref: '#/components/parameters/authHeader'
+        - name: statusPageId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Status Page ID
+      responses:
+        '200':
+          description: List of subscribers
+        '401':
+          description: Unauthorized
